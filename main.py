@@ -40,10 +40,9 @@ async def caesarobjectdetectws(websocket: WebSocket):
         while True:
             contents = await websocket.receive_bytes()
             arr = np.frombuffer(contents, np.uint8) # turns the image byte data into numpy array
-            #print(arr)
-            
-            frame = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED) # turns numpy array into the original image shape and state
 
+            frame = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED) # turns numpy array into the original image shape and state
+            
             image =  caesaryolo.caesar_object_detect(frame) # Does object detection and returns a numpy array
             ret, buffer = cv2.imencode('.png', image) # turns numpy array into buffer
 

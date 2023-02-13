@@ -3,38 +3,17 @@ import numpy as np
 import requests
 import base64
 import time
-#sio = socketio.Client()
-
-#sio.connect('http://localhost:5000')
-
-#sio.emit('man', {'from': 'client'})
-
-#@sio.on("capture")
-#def capture():
-
-        
-        #cv2.imshow("image", image)
-        #if ord("q") == cv2.waitKey(1):
-        #    break
-
-    #cap.release()
-    #cv2.destroyAllWindows()
-
-
-#@sio.on('response')
-#def response(data):
-#    print(data)  # {'from': 'server'}
-
-#   sio.disconnect()
-#    exit(0)
 
 def send_video():
     cap = cv2.VideoCapture(0)
     while True:
         _, image = cap.read()
-        response = requests.post("http://0.0.0.0:7860/caesarobjectdetect",json={"frame":base64.b64encode(image).decode()})
+        #print(image)
+        #uri = "http://palondomus-caesarai.hf.space/caesarobjectdetect"
+        uri = "http://0.0.0.0:7860/caesarobjectdetect"
+        response = requests.post(uri,json={"frame":base64.b64encode(image).decode()})
         imagebase64 = np.array(response.json()["frame"])
-        
+        print(imagebase64)
         image = np.frombuffer(base64.b64decode(imagebase64),dtype="uint8").reshape(480,640,3)
         cv2.imshow("image", image)
         if ord("q") == cv2.waitKey(1):
@@ -52,8 +31,10 @@ def send_websocket():
 
     async def main():
         # Connect to the server
-        uri = 'wss://palondomus-caesarai.hf.space/sendvideows'
+        #uri = 'wss://palondomus-caesarai.hf.space/caesarobjectdetectws'
         #uri = 'ws://0.0.0.0:7860/sendvideows'
+        uri = 'ws://0.0.0.0:7860/sendvideows'
+        uri = 'ws://0.0.0.0:7860/caesarobjectdetectws'
         async with websockets.connect(uri) as ws:
             while True:
                 success, frame = camera.read()
@@ -75,12 +56,5 @@ def send_websocket():
 
     # Start the connection
     asyncio.run(main())
-send_websocket()
-#send_video()
-
-   # @sio.on('caesarobjectresponse')
-    #def caesarobjectresponse(image):
-    #    #print(image)
-    #    cv2.imshow("image",  {'frame':np.array(image["frame"])})
-    #sio.emit("caesarobjectdetect",{'frame':str(image)})
-        
+#send_websocket()
+send_video()
