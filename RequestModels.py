@@ -30,6 +30,7 @@ class CaesarStockInfoModel(BaseModel):
     start_date: str
     end_date: str
 
+
 class CaesarVoiceModel(BaseModel):
     filename: Union[str,None]
     language: Union[str,None]
@@ -44,6 +45,8 @@ class CaesarCreateAPIModel(BaseModel):
     caesarapis : List[dict] = []
 
 class CaesarObjectDetectModel(BaseModel):
+    frame: str
+class CaesarOCRHTTPModel(BaseModel):
     frame: str
 
 class TriggerAPIModel(BaseModel):

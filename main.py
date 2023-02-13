@@ -26,7 +26,7 @@ import uvicorn
 importcsv  = ImportCSV("CaesarAI")
 caesaryolo = CaesarYolo()
 app = FastAPI()
-
+pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 @app.get("/")
 def caesaraihome():
     return "Welcome to CaesarAI's API's and CaesarAINL."
@@ -51,6 +51,101 @@ async def caesarobjectdetectws(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("Client disconnected")
+
+@app.websocket("/caesarocrextractionws")
+async def caesarocrextractionws(websocket: WebSocket):
+    # listen for connections
+    await websocket.accept()
+
+    try:
+        while True:
+            contents = await websocket.receive_bytes()
+            target_words = await websocket.receive_json()
+            
+            target_words = dict(target_words)["target_words"]
+
+
+            arr = np.frombuffer(contents, np.uint8) # turns the image byte data into numpy array
+
+            frame = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED) # turns numpy array into the original image shape and state
+            
+            data = pytesseract.image_to_data(frame, output_type=pytesseract.Output.DICT)
+            image_copy = frame.copy()
+
+            # get all data from the image
+            data = pytesseract.image_to_data(frame, output_type=pytesseract.Output.DICT)
+
+            # print the data
+            #print(data["text"])
+
+            # get all occurences of the that word
+            word_occurences = [ i for i, word in enumerate(data["text"]) for target in target_words if word.lower() == target]
+
+            for occ in word_occurences:
+                # extract the width, height, top and left position for that detected word
+                w = data["width"][occ]
+                h = data["height"][occ]
+                l = data["left"][occ]
+                t = data["top"][occ]
+                # define all the surrounding box points
+                p1 = (l, t)
+                p2 = (l + w, t)
+                p3 = (l + w, t + h)
+                p4 = (l, t + h)
+                # draw the 4 lines (rectangular)
+                image_copy = cv2.line(image_copy, p1, p2, color=(255, 0, 0), thickness=2)
+                image_copy = cv2.line(image_copy, p2, p3, color=(255, 0, 0), thickness=2)
+                image_copy = cv2.line(image_copy, p3, p4, color=(255, 0, 0), thickness=2)
+                image_copy = cv2.line(image_copy, p4, p1, color=(255, 0, 0), thickness=2)
+
+            ret, buffer = cv2.imencode('.png', image_copy) # turns numpy array into buffer
+
+            await websocket.send_bytes(buffer.tobytes()) # sends the buffer as bytes
+
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
+
+@app.websocket("/caesarocrws")
+async def caesarocrws(websocket: WebSocket):
+    # listen for connections
+    await websocket.accept()
+
+    try:
+        while True:
+            contents = await websocket.receive_bytes()
+
+            arr = np.frombuffer(contents, np.uint8) # turns the image byte data into numpy array
+
+            frame = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED) # turns numpy array into the original image shape and state
+            # get the string
+            string = pytesseract.image_to_string(frame)
+            # print it
+            #print(string)
+
+            
+
+            message = json.dumps({"message":string})
+            ret, buffer = cv2.imencode('.png', frame) # turns numpy array into buffer
+
+            await websocket.send_json(message) # sends the buffer as bytes
+            await websocket.send_bytes(buffer.tobytes()) # sends the buffer as bytes
+
+
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
+@app.post("/caesarocr")
+def caesarocr(frames: CaesarOCRHTTPModel):
+    # listen for connections
+    try:
+        frames = dict(frames)
+        image = np.frombuffer(base64.b64decode(frames["frame"]),dtype="uint8").reshape(480,640,3)
+        string = pytesseract.image_to_string(image)
+        return {'message': string}
+    except Exception as ex:
+        return {"error":f"{type(ex)},{ex}"}
+        
 @app.websocket("/sendvideows")
 async def sendvideows(websocket: WebSocket):
     # listen for connections
@@ -325,35 +420,7 @@ def caesarstockinfo(json_input: CaesarStockInfoModel):
     except Exception as ex:
         return {"error":f"{type(ex)}-{ex}"}
 
-@app.post("/caesarocr")
-def caesarocr(imagebase64json: CaesarOCRRequestModel):
-    def data_uri_to_cv2_img(uri):
-        nparr = np.fromstring(uri, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        return img
-    try:
-        # read the image using OpenCV 
-        # from the command line first argument
-        imagebase64json = dict(imagebase64json)
-        #.replace("data:image/jpeg;base64,","").replace("data:image/png;base64,","")
-        data_uri = base64.b64decode(imagebase64json["ocr_data"]) #.replace("'","").replace("b","")
-        #print(data_uri)
-        image = data_uri_to_cv2_img(data_uri)
-        # or you can use Pillow
-        # image = Image.open(sys.argv[1])
 
-        # get the string
-        string = pytesseract.image_to_string(image)
-        # print it
-        print(string)
-
-        # get all data
-        # data = pytesseract.image_to_data(image)
-
-        # print(data)
-        return {"caesaroutput":string}# send_file(filename,"audio/x-wav")
-    except Exception as ex:
-        return {"error":f"{type(ex)}-{ex}"}
 
 
 @app.get("/caesarvoiceget")
@@ -370,8 +437,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-#if __name__ == "__main__":
-    #port = int(os.environ.get('PORT', 5000)) # 80
-    
-    #app.run(debug=True,host="0.0.0.0",port=7860) 
-    #socketio.run(app,debug=True,host="0.0.0.0",port=5000) 
