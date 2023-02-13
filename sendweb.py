@@ -52,7 +52,9 @@ def send_websocket():
 
     async def main():
         # Connect to the server
-        async with websockets.connect('ws://0.0.0.0:7860/caesarobjectdetectws') as ws:
+        uri = 'wss://palondomus-caesarai.hf.space/sendvideows'
+        #uri = 'ws://0.0.0.0:7860/sendvideows'
+        async with websockets.connect(uri) as ws:
             while True:
                 success, frame = camera.read()
                 #print(success)
