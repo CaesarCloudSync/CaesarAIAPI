@@ -1,30 +1,31 @@
+import asyncio
+import base64
 import itertools
 import json
 import os
-from tqdm import tqdm
-from CaesarHotelBooking.caesarhotelbooking import CaesarHotelBooking
-from fastapi import FastAPI,UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
-import speech_recognition as sr
-
-from CaesarDetectEntity import CaesarDetectEntity
-from csv_to_db import ImportCSV
 import time
-from CaesarTranslate import CaesarLangTranslate
-from CaesarVoice import CaesarVoice
-import base64
-from transformers import pipeline
+
+import cv2
+import numpy as np
 import pandas_datareader as pdr
 import pytesseract
-import cv2
-
-from CaesarObjectDetection.CaesarYolo import CaesarYolo
-import numpy as np
-from RequestModels import *
-import asyncio
+import speech_recognition as sr
 import uvicorn
+from CaesarDetectEntity import CaesarDetectEntity
+from CaesarHotelBooking.caesarhotelbooking import CaesarHotelBooking
+from CaesarObjectDetection.CaesarYolo import CaesarYolo
+from CaesarTranslate import CaesarLangTranslate
+from CaesarVoice import CaesarVoice
+from csv_to_db import ImportCSV
+from fastapi import FastAPI, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
+from RequestModels import *
+from tqdm import tqdm
+from transformers import pipeline
+from CaesarFaceDetection.caesarfd import CaesarFaceDetection
 importcsv  = ImportCSV("CaesarAI")
 caesaryolo = CaesarYolo()
+caesarfacedetectmodel = CaesarFaceDetection()
 app = FastAPI()
 pytesseract.pytesseract.tesseract_cmd = '/usr/bin/tesseract'
 @app.get("/")
@@ -51,6 +52,41 @@ async def caesarobjectdetectws(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("Client disconnected")
+
+@app.websocket("/caesarfacedetectws")
+async def caesarfacedetect(websocket: WebSocket):
+    # listen for connections
+    await websocket.accept()
+
+    try:
+        while True:
+            contents = await websocket.receive_bytes()
+            arr = np.frombuffer(contents, np.uint8) # turns the image byte data into numpy array
+
+            frame = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED) # turns numpy array into the original image shape and state
+            
+            image =  caesarfacedetectmodel.detect_face(frame) # Does object detection and returns a numpy array
+            ret, buffer = cv2.imencode('.png', image) # turns numpy array into buffer
+
+            await websocket.send_bytes(buffer.tobytes()) # sends the buffer as bytes
+
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
+
+@app.post("/caesarfacesnap")
+def caesarfacesnap(frames: CaesarOCRHTTPModel):
+    try:
+        frames = dict(frames)
+        image = np.frombuffer(base64.b64decode(frames["frame"]),dtype="uint8").reshape(frames["shape"][0],frames["shape"][1],3)
+        image = caesarfacedetectmodel.detect_face(image,snapcropface=True)
+        if image == [] or image is None:
+            return {"frame":"no face was detected."}
+        elif image != [] or image is None:
+            x=np.ascontiguousarray(image)
+            return {'frame': base64.b64encode(x).decode(),"shape":[image.shape[0],image.shape[1]]}
+    except Exception as ex:
+        return {"error":f"{type(ex)},{ex}"}
 
 @app.websocket("/caesarocrextractionws")
 async def caesarocrextractionws(websocket: WebSocket):
@@ -140,7 +176,7 @@ def caesarocr(frames: CaesarOCRHTTPModel):
     # listen for connections
     try:
         frames = dict(frames)
-        image = np.frombuffer(base64.b64decode(frames["frame"]),dtype="uint8").reshape(480,640,3)
+        image = np.frombuffer(base64.b64decode(frames["frame"]),dtype="uint8").reshape(frames["shape"][0],frames["shape"][1],3)
         string = pytesseract.image_to_string(image)
         return {'message': string}
     except Exception as ex:
@@ -171,8 +207,8 @@ async def sendvideows(websocket: WebSocket):
 @app.post("/caesarobjectdetect")
 def caesarobjectdetect(frames: CaesarObjectDetectModel):
     frames = dict(frames)
-    image = caesaryolo.caesar_object_detect(np.frombuffer(base64.b64decode(frames["frame"]),dtype="uint8").reshape(480,640,3))#base64.b64decode(frames["frame"]))
-    return {'frame': base64.b64encode(image).decode()}
+    image = caesaryolo.caesar_object_detect(np.frombuffer(base64.b64decode(frames["frame"]),dtype="uint8").reshape(frames["shape"][0],frames["shape"][1],3))#base64.b64decode(frames["frame"]))
+    return {'frame': base64.b64encode(image).decode(),"shape":[image.shape[0],image.shape[1]]}
 
 
 # Done

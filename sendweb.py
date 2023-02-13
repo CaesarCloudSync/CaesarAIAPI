@@ -14,11 +14,12 @@ class CaesarSendWeb:
         while True:
             _, image = cap.read()
             #uri = "http://0.0.0.0:7860/caesarobjectdetect"
-            response = requests.post(uri,json={"frame":base64.b64encode(image).decode()})
-            valresp = response.json()["frame"]
-            imagebase64 = np.array(valresp)
+            response = requests.post(uri,json={"frame":base64.b64encode(image).decode(),"shape":[image.shape[0],image.shape[1]]})
+            valresp = response.json()
             
-            image = np.frombuffer(base64.b64decode(imagebase64),dtype="uint8").reshape(480,640,3)
+            imagebase64 = np.array(valresp["frame"])
+            
+            image = np.frombuffer(base64.b64decode(imagebase64),dtype="uint8").reshape(valresp["shape"][0],valresp["shape"][1],3)
             cv2.imshow("image", image)
             if ord("q") == cv2.waitKey(1):
                 break
@@ -55,6 +56,7 @@ class CaesarSendWeb:
                             cv2.waitKey(1)
                         if type(contents) == str:
                             print(json.loads(contents))
+        asyncio.run(main())
     @classmethod
     def send_image_recieve_text(self,uri ="https://palondomus-caesarai.hf.space/caesarocr",showimage=False):
 
@@ -63,15 +65,40 @@ class CaesarSendWeb:
         _, image = cap.read()
         #uri = "http://0.0.0.0:7860/caesarobjectdetect"
         response = requests.post(uri,json={"frame":base64.b64encode(image).decode()})
-        messageresp = str(response.json()["message"])
+        messageresp = response.json()
         if showimage == True:
             cv2.imshow('frame',image)
             cv2.waitKey(0)
             # closing all open windows
             cv2.destroyAllWindows()
-
+        
         return messageresp
+    @classmethod
+    def send_image_recieve_image(self,uri ="https://palondomus-caesarai.hf.space/caesarfacesnap",showimage=False,saveimage=False):
+
+        cap = cv2.VideoCapture(0)
+        
+        _, image = cap.read()
+        #uri = "http://0.0.0.0:7860/caesarobjectdetect"
+        
+        response = requests.post(uri,json={"frame":base64.b64encode(image).decode(),"shape":[image.shape[0],image.shape[1]]})
+        valresp = response.json()
+        
+        imagebase64 = np.array(valresp["frame"])
+        
+        image = np.frombuffer(base64.b64decode(imagebase64),dtype="uint8").reshape(valresp["shape"][0],valresp["shape"][1],3)
+        if showimage == True:
+            cv2.imshow('frame',image)
+            cv2.waitKey(0)
+            # closing all open windows
+            cv2.destroyAllWindows()
+        if saveimage == True:
+            cv2.imwrite("CaesarFaceDetection/croppedimage.png", image)
+   
+
+        return image
 if __name__ == "__main__":
+    
     #yolo_uri = 'wss://palondomus-caesarai.hf.space/caesarobjectdetectws'
     #CaesarSendWeb.send_video_websocket(uri = yolo_uri)
     
@@ -83,11 +110,18 @@ if __name__ == "__main__":
 
     #ocrws_uri = "ws://0.0.0.0:7860/caesarocrws"
     #CaesarSendWeb.send_video_websocket(uri = ocrws_uri)
+    
+    facedetect_uri = "ws://0.0.0.0:7860/caesarfacedetectws"
+    CaesarSendWeb.send_video_websocket(uri = facedetect_uri)
+    
+    #ocr_uri = "http://0.0.0.0:7860/caesarfacesnap"
+    #cropped_image = CaesarSendWeb.send_image_recieve_image(uri = ocr_uri,saveimage=True)
+    #print(cropped_image)
+    
+    #ocr_uri = "http://0.0.0.0:7860/caesarocr"
+    #message = CaesarSendWeb.send_image_recieve_text(uri = ocr_uri,showimage=True)
+    #print(message)
 
-    ocr_uri = "http://0.0.0.0:7860/caesarocr"
-    message = CaesarSendWeb.send_image_recieve_text(uri = ocr_uri,showimage=True)
-    print(message)
 
-
-    #https_uri = 'https://palondomus-caesarai.hf.space/caesarobjectdetect'
+    #https_uri = 'http://0.0.0.0:7860/caesarobjectdetect'
     #CaesarSendWeb.send_video_https(uri = https_uri)

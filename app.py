@@ -1,26 +1,26 @@
+import base64
 import itertools
 import json
 import os
-from tqdm import tqdm
-from CaesarHotelBooking.caesarhotelbooking import CaesarHotelBooking
-from flask import Flask, request,send_file
-from flask_cors import cross_origin
-from flask_jwt_extended import get_current_user, jwt_required
-import speech_recognition as sr
-
-from CaesarDetectEntity import CaesarDetectEntity
-from csv_to_db import ImportCSV
 import time
-from CaesarTranslate import CaesarLangTranslate
-from CaesarVoice import CaesarVoice
-import base64
-from transformers import pipeline
+
+import cv2
+import numpy as np
 import pandas_datareader as pdr
 import pytesseract
-import cv2
-
+import speech_recognition as sr
+from CaesarDetectEntity import CaesarDetectEntity
+from CaesarHotelBooking.caesarhotelbooking import CaesarHotelBooking
 from CaesarObjectDetection.CaesarYolo import CaesarYolo
-import numpy as np
+from CaesarTranslate import CaesarLangTranslate
+from CaesarVoice import CaesarVoice
+from csv_to_db import ImportCSV
+from flask import Flask, request, send_file
+from flask_cors import cross_origin
+from flask_jwt_extended import get_current_user, jwt_required
+from tqdm import tqdm
+from transformers import pipeline
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 

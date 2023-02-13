@@ -46,8 +46,10 @@ class CaesarCreateAPIModel(BaseModel):
 
 class CaesarObjectDetectModel(BaseModel):
     frame: str
+    shape:List
 class CaesarOCRHTTPModel(BaseModel):
     frame: str
+    shape:List
 
 class TriggerAPIModel(BaseModel):
     user_trigger : str
