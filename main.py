@@ -3,7 +3,7 @@ import json
 import os
 from tqdm import tqdm
 from CaesarHotelBooking.caesarhotelbooking import CaesarHotelBooking
-from fastapi import FastAPI,UploadFile
+from fastapi import FastAPI,UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
 import speech_recognition as sr
 
@@ -21,7 +21,8 @@ import cv2
 from CaesarObjectDetection.CaesarYolo import CaesarYolo
 import numpy as np
 from RequestModels import *
-
+import asyncio
+import uvicorn
 importcsv  = ImportCSV("CaesarAI")
 caesaryolo = CaesarYolo()
 app = FastAPI()
@@ -30,6 +31,27 @@ app = FastAPI()
 def caesaraihome():
     return "Welcome to CaesarAI's API's and CaesarAINL."
 
+@app.websocket("/caesarobjectdetectws")
+async def websocket_endpoint(websocket: WebSocket):
+    # listen for connections
+    await websocket.accept()
+
+    try:
+        while True:
+            contents = await websocket.receive_bytes()
+            arr = np.frombuffer(contents, np.uint8)
+            #print(arr)
+            
+            frame = cv2.imdecode(arr, cv2.IMREAD_UNCHANGED)
+            #print(frame.shape)
+            image =  caesaryolo.caesar_object_detect(frame)
+            ret, buffer = cv2.imencode('.png', image)
+            #print(buffer)
+            await websocket.send_bytes(buffer.tobytes())
+
+
+    except WebSocketDisconnect:
+        print("Client disconnected")
 # Done
 @app.post("/caesarobjectdetect")
 def caesarobjectdetect(frames: CaesarObjectDetectModel):
@@ -321,7 +343,15 @@ def caesarvoiceget():
         return FileResponse(filename,media_type="audio/x-wav")
     except Exception as ex:
         return {"error":f"{type(ex)}-{ex}"}
+async def main():
+    config = uvicorn.Config("main:app", port=7860, log_level="info",host="0.0.0.0",reload=True)
+    server = uvicorn.Server(config)
+    await server.serve()
+
 if __name__ == "__main__":
+    asyncio.run(main())
+#if __name__ == "__main__":
     #port = int(os.environ.get('PORT', 5000)) # 80
-    app.run(debug=True,host="0.0.0.0",port=7860) 
+    
+    #app.run(debug=True,host="0.0.0.0",port=7860) 
     #socketio.run(app,debug=True,host="0.0.0.0",port=5000) 
