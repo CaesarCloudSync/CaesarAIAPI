@@ -1,8 +1,6 @@
 from pydantic import BaseModel
 from typing import Union,List
 
-
-    
 class CaesarHotelBookingsModel(BaseModel):
     city:str
     checkin_date: str
